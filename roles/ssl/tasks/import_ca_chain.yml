@@ -3,7 +3,7 @@
   file:
     path: "{{ ssl_file_dir_final }}/generation/trustCAs"
     state: directory
-    mode: 0755
+    mode: '755'
 
 - name: Split CA Certificate Bundle into Cert Files
   shell: |
@@ -31,6 +31,6 @@
             -deststorepass {{truststore_storepass}} \
             -providername BCFIPS \
             -providerclass org.bouncycastle.jcajce.provider.BouncyCastleFipsProvider \
-            -providerpath {% if installation_method == 'archive' %}{{archive_destination_path}}/confluent-{{confluent_package_version}}/{% else %}/usr/{% endif %}share/java/kafka/bc-fips-*.jar
+            -providerpath {{ (binary_base_path, 'share/java/kafka/bc-fips-*.jar') | path_join }}
     done
   when: create_bouncy_castle_keystore|bool

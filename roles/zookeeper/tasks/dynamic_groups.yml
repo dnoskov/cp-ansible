@@ -8,13 +8,17 @@
     src: "{{ zookeeper.systemd_override }}"
   register: slurped_override
   when: installation_method == "archive"
+  tags:
+    - systemd
 
 - name: Set zookeeper_current_version variable - Archive Installer
   set_fact:
     zookeeper_current_version: "{{ (slurped_override.content|b64decode) .split('\n') |
-      select('match', '^ExecStart=' + archive_config_base_path + '/confluent-(.*)/bin/zookeeper-server-start ' + zookeeper.config_file) |
+      select('match', '^ExecStart=' + config_base_path + '/confluent-(.*)/bin/zookeeper-server-start ' + zookeeper.config_file) |
       list | first | regex_search('confluent-([0-9]+(.[0-9]+)+)/bin/', '\\1') | first }}"
   when: installation_method == "archive"
+  tags:
+    - systemd
 
 - name: Load zookeeper.properties
   slurp:
@@ -30,7 +34,7 @@
   vars:
     archive_version: "{{ zookeeper_current_version | default(confluent_package_version) }}"
     zookeeper_ssl_enabled: "{{ (slurped_properties.content|b64decode).split('\n') |
-      select('match', '^ssl.clientAuth=need') | list | length > 0 }}"
+      select('match', '^serverCnxnFactory=org.apache.zookeeper.server.NettyServerCnxnFactory') | list | length > 0 }}"
   register: leader_query
   changed_when: false
   check_mode: false

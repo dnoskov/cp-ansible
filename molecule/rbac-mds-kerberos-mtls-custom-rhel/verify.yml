@@ -1,4 +1,10 @@
 ---
+### Validates that Audit logs are working on topic creation.
+### Validates that keystores are in place.
+### Validates that regular user cannot access topics, while super user can.
+### Validates that MDS is HTTP on Cluster1 (MDS).
+### Validates that all components on Cluster2 are pointing to the MDS on Cluster1.
+
 - name: Verify Audit Logs Pt1
   hosts: kafka_broker
   gather_facts: false
@@ -18,6 +24,18 @@
         file_path: /etc/kafka/server.properties
         property: confluent.security.event.logger.exporter.kafka.topic.replicas
         expected_value: "2"
+
+- name: Verify - kafka_controller
+  hosts: kafka_controller2
+  gather_facts: false
+  tasks:
+    - import_role:
+        name: confluent.test
+        tasks_from: check_property.yml
+      vars:
+        file_path: /etc/controller/server.properties
+        property: listener.name.controller.ssl.keystore.location
+        expected_value: /var/ssl/private/kafka_controller.keystore.jks
 
 - name: Verify - kafka_broker
   hosts: kafka_broker2

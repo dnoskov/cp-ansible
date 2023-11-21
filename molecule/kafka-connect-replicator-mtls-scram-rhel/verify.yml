@@ -1,8 +1,31 @@
 ---
+### Validates that the Console Consumer can consume data from cluster2, proving that data has been replicated from cluster1 (MDS).
+### Validates that Replicator is using SCRAM and TLS to Produce to cluster2.
+### Validates that Replicator is using MTLS to Consume from Cluster1 (MDS).
+### Validates that client ID's are set correctly on Replicator.
+
+- name: Verify - kafka_controller
+  hosts: kafka_controller
+  gather_facts: false
+  tasks:
+    - import_role:
+        name: variables
+    - import_role:
+        name: confluent.test
+        tasks_from: check_property.yml
+      vars:
+        file_path: /etc/controller/server.properties
+        property: controller.quorum.voters
+        expected_value: "{{ kafka_controller_quorum_voters }}"
+
 - name: Kafka Connect Replicator Validate Consumption and Production between clusters
   hosts: kafka-broker1
   gather_facts: false
   tasks:
+    - name: Pause for 20 seconds to allow replication to occur across clusters.
+      pause:
+        seconds: 20
+
     - name: Consume Records from destination cluster
       shell: |
         kafka-console-consumer --topic test-replicator-source --bootstrap-server kafka-broker1:9092 \

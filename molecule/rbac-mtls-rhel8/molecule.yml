@@ -1,23 +1,55 @@
 ---
+### Installs Confluent Platform Cluster on CentOS8.
+### RBAC enabled.
+### MTLS enabled.
+### Kafka Broker Customer Listener.
+### SSO authentication using OIDC in Control center using Okta IdP
+
+driver:
+  name: docker
 platforms:
   - name: ldap1
     hostname: ldap1.confluent
     groups:
       - ldap_server
     image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile-rhel-java8.j2
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
     privileged: true
     networks:
       - name: confluent
-  - name: zookeeper1
-    hostname: zookeeper1.confluent
+  - name: ${KRAFT_CONTROLLER:-zookeeper}1
+    hostname: ${KRAFT_CONTROLLER:-zookeeper}1.confluent
     groups:
-      - zookeeper
+      - ${CONTROLLER_HOSTGROUP:-zookeeper}
     image: geerlingguy/docker-centos8-ansible
-    dockerfile: ../Dockerfile-rhel-java8.j2
+    dockerfile: ../Dockerfile-rhel-java17.j2
+    command: ""
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    privileged: true
+    networks:
+      - name: confluent
+  - name: ${KRAFT_CONTROLLER:-zookeeper}2
+    hostname: ${KRAFT_CONTROLLER:-zookeeper}2.confluent
+    groups:
+      - ${CONTROLLER_HOSTGROUP:-zookeeper}
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
+    command: ""
+    volumes:
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+    privileged: true
+    networks:
+      - name: confluent
+  - name: ${KRAFT_CONTROLLER:-zookeeper}3
+    hostname: ${KRAFT_CONTROLLER:-zookeeper}3.confluent
+    groups:
+      - ${CONTROLLER_HOSTGROUP:-zookeeper}
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -29,7 +61,7 @@ platforms:
     groups:
       - kafka_broker
     image: geerlingguy/docker-centos8-ansible
-    dockerfile: ../Dockerfile-rhel-java8.j2
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -41,7 +73,7 @@ platforms:
     groups:
       - kafka_broker
     image: geerlingguy/docker-centos8-ansible
-    dockerfile: ../Dockerfile-rhel-java8.j2
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -53,7 +85,7 @@ platforms:
     groups:
       - kafka_broker
     image: geerlingguy/docker-centos8-ansible
-    dockerfile: ../Dockerfile-rhel-java8.j2
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -65,7 +97,7 @@ platforms:
     groups:
       - schema_registry
     image: geerlingguy/docker-centos8-ansible
-    dockerfile: ../Dockerfile-rhel-java8.j2
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -77,7 +109,7 @@ platforms:
     groups:
       - kafka_rest
     image: geerlingguy/docker-centos8-ansible
-    dockerfile: ../Dockerfile-rhel-java8.j2
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -89,7 +121,7 @@ platforms:
     groups:
       - kafka_connect
     image: geerlingguy/docker-centos8-ansible
-    dockerfile: ../Dockerfile-rhel-java8.j2
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -101,7 +133,7 @@ platforms:
     groups:
       - ksql
     image: geerlingguy/docker-centos8-ansible
-    dockerfile: ../Dockerfile-rhel-java8.j2
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -113,7 +145,7 @@ platforms:
     groups:
       - control_center
     image: geerlingguy/docker-centos8-ansible
-    dockerfile: ../Dockerfile-rhel-java8.j2
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -130,6 +162,18 @@ provisioner:
         ssl_mutual_auth_enabled: true
 
         rbac_enabled: true
+
+        sso_mode: oidc
+        # necessary configs in MDS server for sso in C3
+        sso_groups_claim: groups
+        sso_sub_claim: sub
+        sso_groups_scope: groups # scope is optional, depending on the Idp
+        sso_issuer_url: https://dev-59009577.okta.com/oauth2/aus96p2og3u7Cpwu65d7
+        sso_jwks_uri: https://dev-59009577.okta.com/oauth2/aus96p2og3u7Cpwu65d7/v1/keys
+        sso_authorize_uri: https://dev-59009577.okta.com/oauth2/aus96p2og3u7Cpwu65d7/v1/authorize
+        sso_token_uri: https://dev-59009577.okta.com/oauth2/aus96p2og3u7Cpwu65d7/v1/token
+        sso_client_id: ${OKTA_CLIENT:-user}
+        sso_client_password: ${OKTA_PASSWORD:-pass}
 
         kafka_broker_custom_listeners:
           client_listener:

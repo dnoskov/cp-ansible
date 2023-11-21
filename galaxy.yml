@@ -1,15 +1,16 @@
 ---
 namespace: confluent
 name: platform
-version: 7.0.1
+version: 7.5.2
 readme: README.md
 authors:
-  - Confluent Ansible Community (https://github.com/confluentinc/cp-ansible)
-description: Confluent Platform Ansible Collection
+  - Confluent Ansible Community
+description: Confluent Platform Ansible Collection (https://github.com/confluentinc/cp-ansible)
 license_file: LICENSE.md
 tags:
   - confluent
   - kafka
+  - application
 dependencies: {}
 repository: https://github.com/confluentinc/cp-ansible
 documentation: https://docs.confluent.io/ansible/current/overview.html

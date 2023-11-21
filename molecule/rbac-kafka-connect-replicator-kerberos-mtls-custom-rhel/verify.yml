@@ -1,4 +1,10 @@
 ---
+### Validates that the Console Consumer can consume data from cluster2, proving that data has been replicated from cluster1 (MDS).
+### Validates that Replicator is using MTLS with RBAC to Produce data to Cluster2.
+### Validates that Replicator is using Kerberos with RBAC to Consume from Cluster1 (MDS).
+### Validates that client ID's are set correctly on Replicator.
+### Validates that Replicator logging path is valid.
+
 - name: Kafka Connect Replicator Validate Consumption and Production between clusters
   hosts: kafka-broker1
   gather_facts: false
@@ -23,6 +29,15 @@
         file_path: /etc/kafka-connect-replicator/kafka-connect-replicator.properties
         property: sasl.mechanism
         expected_value: OAUTHBEARER
+
+    - name: Check Rest Extension Class property
+      import_role:
+        name: confluent.test
+        tasks_from: check_property.yml
+      vars:
+        file_path: /etc/kafka-connect-replicator/kafka-connect-replicator.properties
+        property: rest.extension.classes
+        expected_value: io.confluent.connect.security.ConnectSecurityExtension,io.confluent.connect.replicator.monitoring.ReplicatorMonitoringExtension
 
     - import_role:
         name: confluent.test

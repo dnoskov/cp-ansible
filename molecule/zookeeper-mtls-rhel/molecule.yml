@@ -1,4 +1,10 @@
 ---
+### Installs Confluent Platform on centos8
+### Enables MTLS Auth on Zookeeper.
+### SASL SCRAM enabled on all components except Zookeeper.
+### Customer zookeeper root.
+### Secrets Protection enabled.
+
 driver:
   name: docker
 platforms:
@@ -6,8 +12,8 @@ platforms:
     hostname: zookeeper1.confluent
     groups:
       - zookeeper
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -18,8 +24,8 @@ platforms:
     hostname: zookeeper2.confluent
     groups:
       - zookeeper
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -30,8 +36,8 @@ platforms:
     hostname: zookeeper3.confluent
     groups:
       - zookeeper
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -42,8 +48,8 @@ platforms:
     hostname: kafka-broker1.confluent
     groups:
       - kafka_broker
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -54,8 +60,8 @@ platforms:
     hostname: kafka-broker2.confluent
     groups:
       - kafka_broker
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -66,8 +72,8 @@ platforms:
     hostname: kafka-broker3.confluent
     groups:
       - kafka_broker
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -78,8 +84,8 @@ platforms:
     hostname: schema-registry1.confluent
     groups:
       - schema_registry
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -90,8 +96,8 @@ platforms:
     hostname: kafka-connect1.confluent
     groups:
       - kafka_connect
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -102,8 +108,8 @@ platforms:
     hostname: kafka-rest1.confluent
     groups:
       - kafka_rest
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -114,8 +120,8 @@ platforms:
     hostname: ksql1.confluent
     groups:
       - ksql
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -126,8 +132,8 @@ platforms:
     hostname: control-center1.confluent
     groups:
       - control_center
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -139,8 +145,6 @@ provisioner:
   config_options:
     defaults:
       hash_behaviour: merge
-  playbooks:
-    converge: ../../../../all.yml
   inventory:
     group_vars:
       all:
@@ -150,8 +154,8 @@ provisioner:
         zookeeper_ssl_enabled: true
         zookeeper_ssl_mutual_auth_enabled: true
         sasl_protocol: scram
-
-        secrets_protection_enabled: true
+        # Secrets protection will not work in case of RBAC Disabled. Hence Disabling it here.
+        #secrets_protection_enabled: true
 
         zookeeper_chroot: "/kafka"
 

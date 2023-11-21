@@ -1,11 +1,18 @@
 ---
+### Installation of Confluent Platform on centos8.
+### MTLS enabled.
+### Installs Three unique Kafka Connect Clusters with unique connectors.
+### Installs two unique KSQL Clusters.
+
+driver:
+  name: docker
 platforms:
-  - name: zookeeper1
-    hostname: zookeeper1.confluent
+  - name: ${KRAFT_CONTROLLER:-zookeeper}1
+    hostname: ${KRAFT_CONTROLLER:-zookeeper}1.confluent
     groups:
-      - zookeeper
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+      - ${CONTROLLER_HOSTGROUP:-zookeeper}
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -16,8 +23,8 @@ platforms:
     hostname: kafka-broker1.confluent
     groups:
       - kafka_broker
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -28,8 +35,8 @@ platforms:
     hostname: kafka-broker2.confluent
     groups:
       - kafka_broker
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -40,8 +47,8 @@ platforms:
     hostname: kafka-broker3.confluent
     groups:
       - kafka_broker
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -53,8 +60,8 @@ platforms:
     groups:
       - kafka_connect
       - syslog
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -66,8 +73,8 @@ platforms:
     groups:
       - kafka_connect
       - elastic
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -79,8 +86,8 @@ platforms:
     groups:
       - kafka_connect
       - ssl
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -92,8 +99,8 @@ platforms:
     groups:
       - ksql
       - ks1
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -105,8 +112,8 @@ platforms:
     groups:
       - ksql
       - ks2
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -118,8 +125,8 @@ platforms:
     groups:
       - ksql
       - ks2
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -130,8 +137,8 @@ platforms:
     hostname: control-center1.confluent
     groups:
       - control_center
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -153,7 +160,7 @@ provisioner:
       all:
         ssl_enabled: true
         ssl_mutual_auth_enabled: true
-
+        kafka_connect_deploy_connector_timeout: 30
       # connect clusters
       ssl:
         kafka_connect_group_id: connect-ssl
@@ -169,6 +176,8 @@ provisioner:
               tasks.max: "1"
               file: "/etc/kafka/connect-distributed.properties"
               topics: "test_topic"
+              key.converter: "org.apache.kafka.connect.json.JsonConverter"
+              value.converter: "org.apache.kafka.connect.json.JsonConverter"
       elastic:
         kafka_connect_group_id: connect-elastic
         # Create Connectors not working w ssl
@@ -181,6 +190,8 @@ provisioner:
               tasks.max: "1"
               file: "/etc/kafka/connect-distributed.properties"
               topics: "test_topic"
+              key.converter: "org.apache.kafka.connect.json.JsonConverter"
+              value.converter: "org.apache.kafka.connect.json.JsonConverter"
 
       # ksql clusters
       ks1:

@@ -21,7 +21,9 @@
   vars:
     service_name: "{{ kafka_connect_replicator_service_name }}"
   when: installation_method == "package"
-  tags: package
+  tags:
+    - package
+    - cp_package
 
 - name: Install the Kafka Connect Replicator Packages
   yum:
@@ -31,7 +33,9 @@
     - ansible_os_family == "RedHat"
     - installation_method == "package"
   ignore_errors: "{{ ansible_check_mode }}"
-  tags: package
+  tags:
+    - package
+    - cp_package
   notify: Restart Kafka Connect Replicator
 
 - name: Install the Kafka Connect Replicator Packages
@@ -41,12 +45,16 @@
     - ansible_os_family == "Debian"
     - installation_method == "package"
   ignore_errors: "{{ ansible_check_mode }}"
-  tags: package
+  tags:
+    - package
+    - cp_package
   notify: Restart Kafka Connect Replicator
 
 - name: Create Kafka Connect Replicator Group
   group:
     name: "{{kafka_connect_replicator_group}}"
+  tags:
+    - privileged
 
 - name: Check if Kafka Connect Replicator User Exists
   # Create user task must be skipped for non-linux users
@@ -60,8 +68,11 @@
     name: "{{kafka_connect_replicator_user}}"
     comment: Confluent Kafka Connect Replicator
     system: true
+    shell: "{{user_login_shell}}"
     group: "{{kafka_connect_replicator_group}}"
   when: (getent_passwd|default({}))[kafka_connect_replicator_user] is not defined
+  tags:
+    - privileged
 
 - name: Configure TLS for Kafka Connect Replicator Host
   include_role:
@@ -75,7 +86,7 @@
     service_name: confluent-replicator
     user: "{{kafka_connect_replicator_user}}"
     group: "{{kafka_connect_replicator_group}}"
-    hostnames: "{{ [inventory_hostname, ansible_fqdn, ansible_host, ansible_ssh_host, hostname|default(omit)] | unique }}"
+    hostnames: "{{ [inventory_hostname, ansible_fqdn, ansible_host, ansible_ssh_host|default(omit), hostname|default(omit)] | unique }}"
     ca_cert_path: "{{kafka_connect_replicator_ca_cert_path}}"
     cert_path: "{{kafka_connect_replicator_cert_path}}"
     key_path: "{{kafka_connect_replicator_key_path}}"
@@ -104,7 +115,7 @@
     service_name: kafka-connect-replicator
     user: "{{kafka_connect_replicator_user}}"
     group: "{{kafka_connect_replicator_group}}"
-    hostnames: "{{ [inventory_hostname, ansible_fqdn, ansible_host, ansible_ssh_host, hostname|default(omit)] | unique }}"
+    hostnames: "{{ [inventory_hostname, ansible_fqdn, ansible_host, ansible_ssh_host|default(omit), hostname|default(omit)] | unique }}"
     ca_cert_path: "{{kafka_connect_replicator_consumer_ca_cert_path}}"
     cert_path: "{{kafka_connect_replicator_consumer_cert_path}}"
     key_path: "{{kafka_connect_replicator_consumer_key_path}}"
@@ -131,7 +142,7 @@
     service_name: kafka-connect-replicator
     user: "{{kafka_connect_replicator_user}}"
     group: "{{kafka_connect_replicator_group}}"
-    hostnames: "{{ [inventory_hostname, ansible_fqdn, ansible_host, ansible_ssh_host, hostname|default(omit)] | unique }}"
+    hostnames: "{{ [inventory_hostname, ansible_fqdn, ansible_host, ansible_ssh_host|default(omit), hostname|default(omit)] | unique }}"
     ca_cert_path: "{{kafka_connect_replicator_producer_ca_cert_path}}"
     cert_path: "{{kafka_connect_replicator_producer_cert_path}}"
     key_path: "{{kafka_connect_replicator_producer_key_path}}"
@@ -158,7 +169,7 @@
     service_name: kafka-connect-replicator
     user: "{{kafka_connect_replicator_user}}"
     group: "{{kafka_connect_replicator_group}}"
-    hostnames: "{{ [inventory_hostname, ansible_fqdn, ansible_host, ansible_ssh_host, hostname|default(omit)] | unique }}"
+    hostnames: "{{ [inventory_hostname, ansible_fqdn, ansible_host, ansible_ssh_host|default(omit), hostname|default(omit)] | unique }}"
     ca_cert_path: "{{kafka_connect_replicator_monitoring_interceptor_ca_cert_path}}"
     cert_path: "{{kafka_connect_replicator_monitoring_interceptor_cert_path}}"
     key_path: "{{kafka_connect_replicator_monitoring_interceptor_key_path}}"
@@ -226,6 +237,8 @@
     user: "{{kafka_connect_replicator_user}}"
     group: "{{kafka_connect_replicator_group}}"
   when: kafka_connect_replicator_copy_files | length > 0
+  tags:
+    - configuration
 
 - name: Register Cluster
   include_tasks: register_cluster.yml
@@ -233,27 +246,29 @@
 
 - name: Configure RBAC on Replicator configuration
   include_tasks: rbac_replicator.yml
-  when: kakfa_connect_replicator_rbac_enabled|bool
+  when: kafka_connect_replicator_rbac_enabled|bool
 
 - name: Configure RBAC on Replicator Consumer configuration
   include_tasks: rbac_replicator_consumer.yml
-  when: kakfa_connect_replicator_consumer_rbac_enabled|bool
+  when: kafka_connect_replicator_consumer_rbac_enabled|bool
 
 - name: Configure RBAC on Replicator Producer configuration
   include_tasks: rbac_replicator_producer.yml
-  when: kakfa_connect_replicator_producer_rbac_enabled|bool
+  when: kafka_connect_replicator_producer_rbac_enabled|bool
 
 - name: Configure RBAC on Replicator monitoring interceptor configuration
   include_tasks: rbac_replicator_monitoring.yml
-  when: kakfa_connect_replicator_monitoring_interceptor_rbac_enabled|bool
+  when: kafka_connect_replicator_monitoring_interceptor_rbac_enabled|bool
 
 - name: Create Kafka Connect Replicator Config directory
   file:
     path: "{{ kafka_connect_replicator.replication_config_file | dirname }}"
     state: directory
-    mode: 0750
+    mode: '750'
     owner: "{{kafka_connect_replicator_user}}"
     group: "{{kafka_connect_replicator_group}}"
+  tags:
+    - configuration
 
 - name: Create Logs Directory
   file:
@@ -261,72 +276,88 @@
     state: directory
     group: "{{kafka_connect_replicator_group}}"
     owner: "{{kafka_connect_replicator_user}}"
-    mode: 0770
+    mode: '770'
+  tags:
+    - filesystem
 
 - name: Create Kafka Connect Replicator Log4j Config
   template:
     src: kafka-connect-replicator-log4j.properties.j2
     dest: "{{kafka_connect_replicator.log4j_file}}"
-    mode: 0640
+    mode: '640'
     owner: "{{kafka_connect_replicator_user}}"
     group: "{{kafka_connect_replicator_group}}"
   when: kafka_connect_replicator_custom_log4j|bool
   notify: Restart Kafka Connect Replicator
+  tags:
+    - configuration
 
 - name: Create Kafka Connect Replicator Jolokia Config
   template:
     src: kafka-connect-replicator-jolokia.properties.j2
     dest: "{{kafka_connect_replicator_jolokia_config}}"
-    mode: 0640
+    mode: '640'
     owner: "{{kafka_connect_replicator_user}}"
     group: "{{kafka_connect_replicator_group}}"
   when: kafka_connect_replicator_jolokia_enabled|bool
   notify: Restart Kafka Connect Replicator
+  tags:
+    - configuration
 
 - name: Create Kafka Connect Replicator Config
   template:
     src: kafka-connect-replicator.properties.j2
     dest: "{{kafka_connect_replicator.replication_config_file}}"
-    mode: 0640
+    mode: '640'
     owner: "{{kafka_connect_replicator_user}}"
     group: "{{kafka_connect_replicator_group}}"
   notify: Restart Kafka Connect Replicator
+  tags:
+    - configuration
 
 - name: Create Kafka Connect Replicator Consumer Config
   template:
     src: kafka-connect-replicator-consumer.properties.j2
     dest: "{{kafka_connect_replicator.consumer_config_file}}"
-    mode: 0640
+    mode: '640'
     owner: "{{kafka_connect_replicator_user}}"
     group: "{{kafka_connect_replicator_group}}"
   notify: Restart Kafka Connect Replicator
+  tags:
+    - configuration
 
 - name: Create Kafka Connect Replicator Producer Config
   template:
     src: kafka-connect-replicator-producer.properties.j2
     dest: "{{kafka_connect_replicator.producer_config_file}}"
-    mode: 0640
+    mode: '640'
     owner: "{{kafka_connect_replicator_user}}"
     group: "{{kafka_connect_replicator_group}}"
   notify: Restart Kafka Connect Replicator
+  tags:
+    - configuration
 
 - name: Create Kafka Connect Replicator Monitoring Interceptor Config
   template:
     src: kafka-connect-replicator-interceptors.properties.j2
     dest: "{{kafka_connect_replicator.interceptors_config_file}}"
-    mode: 0640
+    mode: '640'
     owner: "{{kafka_connect_replicator_user}}"
     group: "{{kafka_connect_replicator_group}}"
   notify: Restart Kafka Connect Replicator
+  tags:
+    - configuration
 
 - name: Copy Kafka Connect Replicator Systemd script
   template:
     src: kafka-connect-replicator.service.j2
     dest:  "{{kafka_connect_replicator.systemd_file}}"
-    mode: 0640
+    mode: '640'
     owner: root
     group: root
   notify: Restart Kafka Connect Replicator
+  tags:
+    - systemd
 
 - name: Create Kafka Connect Replicator Systemd override directory
   file:
@@ -334,16 +365,20 @@
     owner: "{{kafka_connect_replicator_user}}"
     group: "{{kafka_connect_replicator_group}}"
     state: directory
-    mode: 0640
+    mode: '640'
+  tags:
+    - systemd
 
 - name: Write Kafka Connect Replicator Service Overrides
   template:
     src: override.conf.j2
     dest: "{{ kafka_connect_replicator.systemd_override }}"
-    mode: 0640
+    mode: '640'
     owner: "{{kafka_connect_replicator_user}}"
     group: "{{kafka_connect_replicator_group}}"
   notify: Restart Kafka Connect Replicator
+  tags:
+    - systemd
 
 - name: Certs were Updated - Trigger Restart
   command: /bin/true
@@ -357,9 +392,30 @@
     name: "{{kafka_connect_replicator_service_name}}"
     enabled: true
     state: started
+  tags:
+    - systemd
 
 - name: Run Kafka Connect Replicator Health Check
   include_tasks: health_check.yml
   when:
     - kafka_connect_replicator_health_checks_enabled|bool
     - not ansible_check_mode
+
+- name: Delete temporary keys/certs when keystore and trustore is provided
+  file:
+    path: "{{item}}"
+    state: absent
+  loop:
+    - "{{kafka_connect_replicator_ca_cert_path}}"
+    - "{{kafka_connect_replicator_cert_path}}"
+    - "{{kafka_connect_replicator_key_path}}"
+    - "{{kafka_connect_replicator_consumer_ca_cert_path}}"
+    - "{{kafka_connect_replicator_consumer_cert_path}}"
+    - "{{kafka_connect_replicator_consumer_key_path}}"
+    - "{{kafka_connect_replicator_producer_ca_cert_path}}"
+    - "{{kafka_connect_replicator_producer_cert_path}}"
+    - "{{kafka_connect_replicator_producer_key_path}}"
+    - "{{kafka_connect_replicator_monitoring_interceptor_ca_cert_path}}"
+    - "{{kafka_connect_replicator_monitoring_interceptor_cert_path}}"
+    - "{{kafka_connect_replicator_monitoring_interceptor_key_path}}"
+  when: (ssl_provided_keystore_and_truststore | bool)

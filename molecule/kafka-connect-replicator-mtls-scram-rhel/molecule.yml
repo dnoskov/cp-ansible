@@ -1,8 +1,14 @@
-### replicator-mtls-scram-rhel
-##
-##  Tests replicator over mTLS and SCRAM TLS
-##
 ---
+### Installation of Confluent Platform on centos8 with two distinct clusters.
+### Installation of Confluent Replicator.
+### Cluster1 (MDS) is running MTLS with Custom Certs.
+### Cluster2 is running SCRAM with TLS enabled.
+### Replicator consumes from Cluster1 (MDS) using MTLS with Custom Certs for TLS.
+### Replicator Produces to Cluster2 using SCRAM with Custom Certs for TLS.
+### Tests default values for replicator configuration works.
+
+driver:
+  name: docker
 platforms:
   - name: mds-kerberos1
     hostname: mds-kerberos1.confluent
@@ -21,8 +27,8 @@ platforms:
     groups:
       - zookeeper
       - mds
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -34,8 +40,8 @@ platforms:
     groups:
       - kafka_broker
       - mds
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -47,8 +53,8 @@ platforms:
     groups:
       - kafka_broker
       - mds
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -60,8 +66,8 @@ platforms:
     groups:
       - kafka_broker
       - mds
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -74,8 +80,8 @@ platforms:
     groups:
       - zookeeper2
       - cluster2
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -87,8 +93,8 @@ platforms:
     groups:
       - kafka_broker2
       - cluster2
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -100,8 +106,8 @@ platforms:
     groups:
       - kafka_broker2
       - cluster2
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -113,8 +119,8 @@ platforms:
     groups:
       - kafka_broker2
       - cluster2
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro
@@ -126,8 +132,8 @@ platforms:
     groups:
       - kafka_connect_replicator2
       - cluster2
-    image: geerlingguy/docker-centos7-ansible
-    dockerfile: ../Dockerfile.j2
+    image: geerlingguy/docker-centos8-ansible
+    dockerfile: ../Dockerfile-rhel-java17.j2
     command: ""
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:ro

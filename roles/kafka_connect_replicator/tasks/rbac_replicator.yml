@@ -3,16 +3,33 @@
   file:
     path: /var/ssl/private/kafka_connect_replicator
     state: directory
-    mode: 0755
+    mode: '755'
+  tags:
+    - privileged
+
+- name: Check if MDS pem file exists on Ansible Controller
+  stat:
+    path: "{{ kafka_connect_replicator_erp_pem_file }}"
+  register: replicator_pem_file
+  delegate_to: localhost
+  vars:
+    ansible_connection: local
+    ansible_become: "{{ ansible_become_localhost }}"
+
+- name: Debug
+  ansible.builtin.debug:
+    msg: WARNING - The file {{kafka_connect_replicator_erp_pem_file}} doesn't exist on the control node
+  when: not replicator_pem_file.stat.exists|bool
 
 - name: Copy in MDS Public Pem File
   copy:
     src: "{{ kafka_connect_replicator_erp_pem_file }}"
     dest: "{{ kafka_connect_replicator_rbac_enabled_public_pem_path }}"
-    mode: 0640
+    mode: '640'
     owner: "{{kafka_connect_replicator_user}}"
     group: "{{kafka_connect_replicator_group}}"
   diff: "{{ not mask_sensitive_diff|bool }}"
+  when: replicator_pem_file.stat.exists|bool
 
 - name: Grant Confluent Replicator User SystemAdmin on Kafka cluster
   uri:
@@ -32,6 +49,10 @@
         }
       }
     status_code: 204
+  register: replicator_mds_result
+  until: replicator_mds_result.status == 204
+  retries: 30
+  delay: 5
   when: kafka_connect_replicator_kafka_cluster_id != "" and not ansible_check_mode
 
 - name: Grant Confluent Replicator User SystemAdmin on Replicator Cluster
@@ -48,11 +69,15 @@
     body: >
       {
         "clusters": {
-          "kafka-cluster": "{{kafka_connect_replicator_kafka_cluster_id}}"
+          "kafka-cluster": "{{kafka_connect_replicator_kafka_cluster_id}}",
           "connect-cluster": "{{kafka_connect_replicator_cluster_id}}"
         }
       }
     status_code: 204
+  register: replicator_mds_result
+  until: replicator_mds_result.status == 204
+  retries: 30
+  delay: 5
   when: kafka_connect_replicator_kafka_cluster_id != "" and not ansible_check_mode
 
 - name: Grant Confluent Replicator User ResourceOwner on Connect Topics
@@ -70,33 +95,37 @@
       {
         "scope": {
           "clusters": {
-            "kafka-cluster":"{{kafka_connect_replicator_kafka_cluster_id}}"}},
-            "resourcePatterns": [
-              {
-                "resourceType":"Group",
-                "name":"{{ kafka_connect_replicator_cluster_id }}",
-                "patternType":"PREFIXED"
-              },
-              {
-                "resourceType":"Topic",
-                "name": "{{ kafka_connect_replicator_offsets_topic }}",
-                "patternType": "LITERAL"
-              },
-              {
-                "resourceType":"Topic",
-                "name": "{{ kafka_connect_replicator_storage_topic }}",
-                "patternType": "LITERAL"
-              },
-              {
-                "resourceType":"Topic",
-                "name": "{{ kafka_connect_replicator_status_topic }}",
-                "patternType": "LITERAL"
-              }
-            ]
+            "kafka-cluster":"{{kafka_connect_replicator_kafka_cluster_id}}"
+            }
+        },
+        "resourcePatterns": [
+          {
+            "resourceType":"Group",
+            "name":"{{ kafka_connect_replicator_cluster_id }}",
+            "patternType":"PREFIXED"
+          },
+          {
+            "resourceType":"Topic",
+            "name": "{{ kafka_connect_replicator_offsets_topic }}",
+            "patternType": "LITERAL"
+          },
+          {
+            "resourceType":"Topic",
+            "name": "{{ kafka_connect_replicator_storage_topic }}",
+            "patternType": "LITERAL"
+          },
+          {
+            "resourceType":"Topic",
+            "name": "{{ kafka_connect_replicator_status_topic }}",
+            "patternType": "LITERAL"
           }
-        }
+        ]
       }
     status_code: 204
+  register: replicator_mds_result
+  until: replicator_mds_result.status == 204
+  retries: 30
+  delay: 5
   when: kafka_connect_replicator_kafka_cluster_id != "" and not ansible_check_mode
 
 
@@ -115,18 +144,22 @@
       {
         "scope": {
           "clusters": {
-            "kafka-cluster":"{{kafka_connect_replicator_kafka_cluster_id}}"}},
-            "resourcePatterns": [
-              {
-                "resourceType":"Topic",
-                "name": "{{kafka_connect_replicator_final_properties['confluent.license.topic']}}",
-                "patternType": "LITERAL"
-              }
-            ]
+            "kafka-cluster":"{{kafka_connect_replicator_kafka_cluster_id}}"
+            }
+        },
+        "resourcePatterns": [
+          {
+            "resourceType":"Topic",
+            "name": "{{kafka_connect_replicator_final_properties['confluent.license.topic']}}",
+            "patternType": "LITERAL"
           }
-        }
+        ]
       }
     status_code: 204
+  register: replicator_mds_result
+  until: replicator_mds_result.status == 204
+  retries: 30
+  delay: 5
   when: kafka_connect_replicator_kafka_cluster_id != "" and not ansible_check_mode
 
 
@@ -145,18 +178,22 @@
       {
         "scope": {
           "clusters": {
-            "kafka-cluster":"{{kafka_connect_replicator_kafka_cluster_id}}"}},
-            "resourcePatterns": [
-              {
-                "resourceType":"Topic",
-                "name": "{{kafka_connect_replicator_final_properties['confluent.license.topic']}}",
-                "patternType": "LITERAL"
-              }
-            ]
+            "kafka-cluster":"{{kafka_connect_replicator_kafka_cluster_id}}"
+            }
+        },
+        "resourcePatterns": [
+          {
+            "resourceType":"Topic",
+            "name": "{{kafka_connect_replicator_final_properties['confluent.license.topic']}}",
+            "patternType": "LITERAL"
           }
-        }
+        ]
       }
     status_code: 204
+  register: replicator_mds_result
+  until: replicator_mds_result.status == 204
+  retries: 30
+  delay: 5
   when: kafka_connect_replicator_kafka_cluster_id != "" and not ansible_check_mode
 
 
@@ -175,18 +212,22 @@
       {
         "scope": {
           "clusters": {
-            "kafka-cluster":"{{kafka_connect_replicator_kafka_cluster_id}}"}},
-            "resourcePatterns": [
-              {
-                "resourceType":"Topic",
-                "name": "{{kafka_connect_replicator_final_properties['confluent.license.topic']}}",
-                "patternType": "LITERAL"
-              }
-            ]
+            "kafka-cluster":"{{kafka_connect_replicator_kafka_cluster_id}}"
+            }
+        },
+        "resourcePatterns": [
+          {
+            "resourceType":"Topic",
+            "name": "{{kafka_connect_replicator_final_properties['confluent.license.topic']}}",
+            "patternType": "LITERAL"
           }
-        }
+        ]
       }
     status_code: 204
+  register: replicator_mds_result
+  until: replicator_mds_result.status == 204
+  retries: 30
+  delay: 5
   when: kafka_connect_replicator_kafka_cluster_id != "" and not ansible_check_mode
 
 # The following block of URI calls sets up the permissions for replicator when cluster_name is used for the indetifier.
@@ -205,9 +246,12 @@
     body: >
       {
           "clusterName": "{{kafka_connect_replicator_kafka_cluster_name}}"
-        }
       }
     status_code: 204
+  register: replicator_mds_result
+  until: replicator_mds_result.status == 204
+  retries: 30
+  delay: 5
   when: kafka_connect_replicator_kafka_cluster_name != "" and not ansible_check_mode
 
 - name: Grant Confluent Replicator User SystemAdmin on Replicator Cluster
@@ -224,9 +268,12 @@
     body: >
       {
           "clusterName": "{{kafka_connect_replicator_cluster_name}}"
-        }
       }
     status_code: 204
+  register: replicator_mds_result
+  until: replicator_mds_result.status == 204
+  retries: 30
+  delay: 5
   when: kafka_connect_replicator_kafka_cluster_name != "" and not ansible_check_mode
 
 - name: Grant Confluent Replicator User ResourceOwner on Connect Topics
@@ -245,32 +292,34 @@
         "scope": {
           "clusterName": "{{ kafka_connect_replicator_kafka_cluster_name }}"
         },
-            "resourcePatterns": [
-              {
-                "resourceType":"Group",
-                "name":"{{ kafka_connect_replicator_cluster_id }}",
-                "patternType":"PREFIXED"
-              },
-              {
-                "resourceType":"Topic",
-                "name": "{{ kafka_connect_replicator_offsets_topic }}",
-                "patternType": "LITERAL"
-              },
-              {
-                "resourceType":"Topic",
-                "name": "{{ kafka_connect_replicator_storage_topic }}",
-                "patternType": "LITERAL"
-              },
-              {
-                "resourceType":"Topic",
-                "name": "{{ kafka_connect_replicator_status_topic }}",
-                "patternType": "LITERAL"
-              }
-            ]
+        "resourcePatterns": [
+          {
+            "resourceType":"Group",
+            "name":"{{ kafka_connect_replicator_cluster_id }}",
+            "patternType":"PREFIXED"
+          },
+          {
+            "resourceType":"Topic",
+            "name": "{{ kafka_connect_replicator_offsets_topic }}",
+            "patternType": "LITERAL"
+          },
+          {
+            "resourceType":"Topic",
+            "name": "{{ kafka_connect_replicator_storage_topic }}",
+            "patternType": "LITERAL"
+          },
+          {
+            "resourceType":"Topic",
+            "name": "{{ kafka_connect_replicator_status_topic }}",
+            "patternType": "LITERAL"
           }
-        }
+        ]
       }
     status_code: 204
+  register: replicator_mds_result
+  until: replicator_mds_result.status == 204
+  retries: 30
+  delay: 5
   when: kafka_connect_replicator_kafka_cluster_name != "" and not ansible_check_mode
 
 - name: Grant Confluent Replicator User Developer Read on Command Topic
@@ -289,17 +338,19 @@
         "scope": {
           "clusterName": "{{ kafka_connect_replicator_kafka_cluster_name }}"
         },
-            "resourcePatterns": [
-              {
-                "resourceType":"Topic",
-                "name": "{{kafka_connect_replicator_final_properties['confluent.license.topic']}}",
-                "patternType": "LITERAL"
-              }
-            ]
+        "resourcePatterns": [
+          {
+            "resourceType":"Topic",
+            "name": "{{kafka_connect_replicator_final_properties['confluent.license.topic']}}",
+            "patternType": "LITERAL"
           }
-        }
+        ]
       }
     status_code: 204
+  register: replicator_mds_result
+  until: replicator_mds_result.status == 204
+  retries: 30
+  delay: 5
   when: kafka_connect_replicator_kafka_cluster_name != "" and not ansible_check_mode
 
 - name: Grant Confluent Replicator User Developer Write on Command Topic
@@ -318,17 +369,19 @@
         "scope": {
           "clusterName": "{{ kafka_connect_replicator_kafka_cluster_name }}"
         },
-            "resourcePatterns": [
-              {
-                "resourceType":"Topic",
-                "name": "{{kafka_connect_replicator_final_properties['confluent.license.topic']}}",
-                "patternType": "LITERAL"
-              }
-            ]
+        "resourcePatterns": [
+          {
+            "resourceType":"Topic",
+            "name": "{{kafka_connect_replicator_final_properties['confluent.license.topic']}}",
+            "patternType": "LITERAL"
           }
-        }
+        ]
       }
     status_code: 204
+  register: replicator_mds_result
+  until: replicator_mds_result.status == 204
+  retries: 30
+  delay: 5
   when: kafka_connect_replicator_kafka_cluster_name != "" and not ansible_check_mode
 
 - name: Grant Confluent Replicator User Developer Manage on Command Topic
@@ -347,17 +400,19 @@
         "scope": {
           "clusterName": "{{ kafka_connect_replicator_kafka_cluster_name }}"
         },
-            "resourcePatterns": [
-              {
-                "resourceType":"Topic",
-                "name": "{{kafka_connect_replicator_final_properties['confluent.license.topic']}}",
-                "patternType": "LITERAL"
-              }
-            ]
+        "resourcePatterns": [
+          {
+            "resourceType":"Topic",
+            "name": "{{kafka_connect_replicator_final_properties['confluent.license.topic']}}",
+            "patternType": "LITERAL"
           }
-        }
+        ]
       }
     status_code: 204
+  register: replicator_mds_result
+  until: replicator_mds_result.status == 204
+  retries: 30
+  delay: 5
   when: kafka_connect_replicator_kafka_cluster_name != "" and not ansible_check_mode
 
 - name: Grant Confluent Replicator User Security Admin on Destination cluster
@@ -377,4 +432,8 @@
           "connect-cluster": "{{ kafka_connect_replicator_cluster_id }}"
       }
     status_code: 204
+  register: replicator_mds_result
+  until: replicator_mds_result.status == 204
+  retries: 30
+  delay: 5
   when: kafka_connect_replicator_kafka_cluster_name != "" and not ansible_check_mode

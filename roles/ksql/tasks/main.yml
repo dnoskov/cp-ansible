@@ -21,32 +21,48 @@
   vars:
     service_name: "{{ ksql_service_name }}"
   when: installation_method == "package"
-  tags: package
+  tags:
+    - package
+    - cp_package
 
 - name: Install the Ksql Packages
   yum:
     name: "{{ ksql_packages | product([confluent_package_redhat_suffix]) | map('join') | list }}"
     state: latest
+  register: install_ksql_package_result
+  until: install_ksql_package_result is success or ansible_check_mode
+  retries: 5
+  delay: 90
   when:
     - ansible_os_family == "RedHat"
     - installation_method == "package"
   ignore_errors: "{{ ansible_check_mode }}"
-  tags: package
+  tags:
+    - package
+    - cp_package
   notify: restart ksql
 
 - name: Install the Ksql Packages
   apt:
     name: "{{ ksql_packages | product([confluent_package_debian_suffix]) | map('join') | list }}"
+  register: install_ksql_package_result
+  until: install_ksql_package_result is success or ansible_check_mode
+  retries: 5
+  delay: 90
   when:
     - ansible_os_family == "Debian"
     - installation_method == "package"
   ignore_errors: "{{ ansible_check_mode }}"
-  tags: package
+  tags:
+    - package
+    - cp_package
   notify: restart ksql
 
 - name: Create Ksql Group
   group:
     name: "{{ksql_group}}"
+  tags:
+    - privileged
 
 - name: Check if Ksql User Exists
   # Create user task must be skipped for non-linux users
@@ -60,8 +76,11 @@
     name: "{{ksql_user}}"
     comment: Confluent KSQL
     system: true
+    shell: "{{user_login_shell}}"
     group: "{{ksql_group}}"
   when: (getent_passwd|default({}))[ksql_user] is not defined
+  tags:
+    - privileged
 
 - name: Set Ksql streams dir permissions
   file:
@@ -69,7 +88,9 @@
     owner: "{{ksql_user}}"
     group: "{{ksql_group}}"
     state: directory
-    mode: 0750
+    mode: '750'
+  tags:
+    - filesystem
 
 # Archive File deployments need to create SystemD service units
 # Copy the tarball's systemd service to the system
@@ -78,9 +99,11 @@
     src: "{{binary_base_path}}/lib/systemd/system/{{ksql.systemd_file|basename}}"
     remote_src: true
     dest: "{{ksql.systemd_file}}"
-    mode: 0644
+    mode: '644'
     force: true
   when: installation_method == "archive"
+  tags:
+    - systemd
 
 - include_role:
     name: ssl
@@ -93,7 +116,7 @@
     service_name: ksql
     user: "{{ksql_user}}"
     group: "{{ksql_group}}"
-    hostnames: "{{ [inventory_hostname, ansible_fqdn, ansible_host, ansible_ssh_host, hostname|default(omit)] | unique }}"
+    hostnames: "{{ [inventory_hostname, ansible_fqdn, ansible_host, ansible_ssh_host|default(omit), hostname|default(omit)] | unique }}"
     ca_cert_path: "{{ksql_ca_cert_path}}"
     cert_path: "{{ksql_cert_path}}"
     key_path: "{{ksql_key_path}}"
@@ -135,6 +158,8 @@
     user: "{{ksql_user}}"
     group: "{{ksql_group}}"
   when: ksql_copy_files | length > 0
+  tags:
+    - configuration
 
 - name: Configure RBAC
   include_tasks: rbac.yml
@@ -144,9 +169,23 @@
   file:
     path: "{{ ksql.config_file | dirname }}"
     state: directory
-    mode: 0750
+    mode: '750'
     owner: "{{ksql_user}}"
     group: "{{ksql_group}}"
+  tags:
+    - filesystem
+
+- name: Create Ksql Config
+  template:
+    src: ksql-server.properties.j2
+    dest: "{{ksql.config_file}}"
+    mode: '640'
+    owner: "{{ksql_user}}"
+    group: "{{ksql_group}}"
+  notify: restart ksql
+  diff: "{{ not mask_sensitive_diff|bool }}"
+  tags:
+    - configuration
 
 - name: Create Ksql Config with Secrets Protection
   include_role:
@@ -160,19 +199,13 @@
     secrets_file: "{{ ksql_secrets_protection_file }}"
     secrets_file_owner: "{{ ksql_user }}"
     secrets_file_group: "{{ ksql_group }}"
+    ca_cert_path: "{{ ksql_ca_cert_path if ksql_ssl_enabled|bool else '' }}"
     handler: restart ksql
-  when: ksql_secrets_protection_enabled|bool
-
-- name: Create Ksql Config
-  template:
-    src: ksql-server.properties.j2
-    dest: "{{ksql.config_file}}"
-    mode: 0640
-    owner: "{{ksql_user}}"
-    group: "{{ksql_group}}"
-  notify: restart ksql
-  when: not ksql_secrets_protection_enabled|bool
-  diff: "{{ not mask_sensitive_diff|bool }}"
+  tags:
+    - configuration
+  when:
+    - ksql_secrets_protection_enabled|bool
+    - rbac_enabled|bool or confluent_cli_version is version('3.0.0', '>=')
 
 - name: Create Logs Directory
   file:
@@ -180,7 +213,10 @@
     state: directory
     group: "{{ksql_group}}"
     owner: "{{ksql_user}}"
-    mode: 0770
+    mode: '770'
+  tags:
+    - filesystem
+    - log
 
 - name: Create log4j Directory
   file:
@@ -188,37 +224,86 @@
     owner: "{{ksql_user}}"
     group: "{{ksql_group}}"
     state: directory
-    mode: 0750
+    mode: '750'
+  tags:
+    - filesystem
+    - log
 
 - name: Create Ksql log4j Config
   template:
     src: ksql-server_log4j.properties.j2
     dest: "{{ksql.log4j_file}}"
-    mode: 0640
+    mode: '640'
     owner: "{{ksql_user}}"
     group: "{{ksql_group}}"
   when: ksql_custom_log4j|bool
   notify: restart ksql
+  tags:
+    - configuration
+    - log
+
+- name: Create logredactor rule file directory
+  file:
+    path: "{{ logredactor_rule_path | dirname }}"
+    state: directory
+    mode: '755'
+  when: (ksql_custom_log4j|bool) and (logredactor_enabled|bool) and (logredactor_rule_url == '')
+  tags:
+    - log
+
+- name: Copy logredactor rule file from control node to component node
+  copy:
+    src: "{{ logredactor_rule_path_local }}"
+    dest: "{{ logredactor_rule_path }}"
+    mode: '644'
+  when: (ksql_custom_log4j|bool) and (logredactor_enabled|bool) and (logredactor_rule_url == '')
+  tags:
+    - log
+
+- name: Configure logredactor
+  include_role:
+    name: common
+    tasks_from: configure_logredactor.yml
+  vars:
+    log4j_file: "{{ksql.log4j_file}}"
+    logredactor_rule_var: "{% if logredactor_rule_url == '' %}{{logredactor_rule_path}}{% else %}{{logredactor_rule_url}}{% endif %}"
+    logredactor_policy_refresh_interval_var: "{{logredactor_policy_refresh_interval}}"
+  with_items: "{{ ksql_logredactor_logger_specs_list }}"
+  when: (ksql_custom_log4j|bool) and (logredactor_enabled|bool)
+  tags:
+    - log
+
+- name: Restart ksql
+  ansible.builtin.debug:
+    msg: "restarting ksql"
+  notify: restart ksql
+  when: (ksql_custom_log4j|bool) and (logredactor_enabled|bool) and (not ksql_skip_restarts|bool)
+  tags:
+    - log
 
 - name: Create Ksql Jolokia Config
   template:
     src: ksql_jolokia.properties.j2
     dest: "{{ksql_jolokia_config}}"
-    mode: 0640
+    mode: '640'
     owner: "{{ksql_user}}"
     group: "{{ksql_group}}"
   when: ksql_jolokia_enabled|bool
   notify: restart ksql
   diff: "{{ not mask_sensitive_diff|bool }}"
+  tags:
+    - configuration
 
 - name: Create RocksDB Directory
   file:
     path: "{{ksql_rocksdb_path}}"
     group: "{{ksql_group}}"
     owner: "{{ksql_user}}"
-    mode: 0750
+    mode: '750'
     state: directory
   when: ksql_rocksdb_path != ""
+  tags:
+    - filesystem
 
 - name: Set Permission to RocksDB Files
   file:
@@ -227,21 +312,25 @@
     owner: "{{ksql_user}}"
     recurse: true
   when: ksql_rocksdb_path != ""
+  tags:
+    - filesystem
 
 - name: Deploy JMX Exporter Config File
   copy:
     src: "{{ksql_jmxexporter_config_source_path}}"
     dest: "{{ksql_jmxexporter_config_path}}"
-    mode: 0640
+    mode: '640'
     owner: "{{ksql_user}}"
     group: "{{ksql_group}}"
   when: ksql_jmxexporter_enabled|bool
+  tags:
+    - configuration
 
 - name: Create Basic Auth Jaas File
   template:
     src: jaas.conf.j2
     dest: "{{ksql.jaas_file}}"
-    mode: 0640
+    mode: '640'
     owner: "{{ksql_user}}"
     group: "{{ksql_group}}"
   notify: restart ksql
@@ -251,7 +340,7 @@
   template:
     src: password.properties.j2
     dest: "{{ksql.password_file}}"
-    mode: 0640
+    mode: '640'
     owner: "{{ksql_user}}"
     group: "{{ksql_group}}"
   notify: restart ksql
@@ -263,17 +352,23 @@
     owner: "{{ksql_user}}"
     group: "{{ksql_group}}"
     state: directory
-    mode: 0640
+    mode: '640'
+  tags:
+    - systemd
+    - privileged
 
 - name: Write Service Overrides
   template:
     src: override.conf.j2
     dest: "{{ksql.systemd_override}}"
-    mode: 0640
+    mode: '640'
     owner: root
     group: root
   notify: restart ksql
   diff: "{{ not mask_sensitive_diff|bool }}"
+  tags:
+    - systemd
+    - privileged
 
 - name: Certs were Updated - Trigger Restart
   command: /bin/true
@@ -287,6 +382,8 @@
     name: "{{ksql_service_name}}"
     enabled: true
     state: started
+  tags:
+    - systemd
 
 - name: Health Check
   include_tasks: health_check.yml
@@ -295,6 +392,27 @@
     - not ansible_check_mode
   tags: health_check
 
+# Set a host fact with the direct cluster parent group
+- name: Set parent Cluster
+  vars:
+    keywords:
+      - ksql
+      - ksql_parallel
+      - ksql_serial
+  set_fact:
+    parent_ksql_cluster_group: "{{ (group_names | difference(keywords))[0] | default('ksql') }}"
+    parent_ksql_cluster_id: "{{ ksql_final_properties['ksql.service.id'] }}"
+
 - name: Register Cluster
   include_tasks: register_cluster.yml
-  when: ksql_cluster_name | length >0 and rbac_enabled|bool
+  run_once: true
+
+- name: Delete temporary keys/certs when keystore and trustore is provided
+  file:
+    path: "{{item}}"
+    state: absent
+  loop:
+    - "{{ksql_ca_cert_path}}"
+    - "{{ksql_cert_path}}"
+    - "{{ksql_key_path}}"
+  when: (ssl_provided_keystore_and_truststore | bool)
